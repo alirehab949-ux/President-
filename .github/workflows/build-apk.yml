@@ -2,7 +2,8 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main # استبدله باسم الفرع لديك إذا كان master
 
 jobs:
   build:
@@ -15,17 +16,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '20'
 
-      - name: Prepare Web Assets & Build Capacitor
-        run: |
-          mkdir www
-          find . -maxdepth 1 ! -name '.' ! -name 'www' ! -name 'android' ! -name '.git' ! -name '.github' ! -name 'node_modules' -exec cp -r {} www/ \;
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "StoreScanner" "com.storescanner.app" --web-dir www
-          npx cap add android
-          npx cap sync android
+      - name: Install Dependencies
+        run: npm ci || npm install
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -33,14 +27,22 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build Gradle APK
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build Web Assets and Sync Capacitor
+        run: |
+          npm run build --if-present
+          npx cap sync android
+
+      - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew clean assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StoreScanner-APK
+          name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
