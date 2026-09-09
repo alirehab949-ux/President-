@@ -65,7 +65,6 @@
     
     <input type="text" id="storeNameResult" class="result-input" placeholder="اسم المحل يظهر هنا" oninput="checkReadyToSend()">
     
-    <!-- معاينة المنطقة المقصوصة لتأكيد القراءة الصحيحة -->
     <div id="cropPreviewBox" class="crop-preview-box">
       <div class="crop-preview-title">المنطقة المقصوصة من الكاميرا:</div>
       <img id="cropPreviewImg" alt="Crop Area">
@@ -86,7 +85,7 @@
 
   <!-- 3. الإرسال واختيار الجهة في الواتساب -->
   <button id="sendBtn" class="btn-send" onclick="sendData()" disabled>
-    <i class="fa-brands fa-whatsapp" style="font-size: 24px;"></i> إرسال واختيار جهة الاتصال
+    <i class="fa-brands fa-whatsapp" style="font-size: 24px;"></i> إرسال الصورة والبيانات
   </button>
 </div>
 
@@ -108,7 +107,7 @@
   let currentGpsUrl = "";
   let activeMode = "";
   let videoStream = null;
-  let storeImageBlob = null;
+  let storeImageBase64 = null;
 
   async function openCamera(mode) {
     activeMode = mode;
@@ -221,9 +220,8 @@
       processOCR(croppedImageUrl);
 
     } else if (activeMode === 'photo') {
-      canvas.toBlob((blob) => { storeImageBlob = blob; }, 'image/jpeg');
-      const fullImageUrl = canvas.toDataURL('image/jpeg');
-      processPhotoAndGPS(fullImageUrl);
+      storeImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+      processPhotoAndGPS(storeImageBase64);
     }
 
     closeCamera();
@@ -294,11 +292,40 @@
     const storeName = document.getElementById('storeNameResult').value.trim();
     const messageText = `📝 المحل: ${storeName}\n📍 الموقع: ${currentGpsUrl}`;
 
-    // 1. محاولة المشاركة عبر نظام الهاتف (تتيح إرسال الصورة والنص معاً واختيار المحادثة في الواتساب)
-    if (storeImageBlob && navigator.canShare) {
-      try {
-        const imageFile = new File([storeImageBlob], 'store_photo.jpg', { type: 'image/jpeg' });
-        if (navigator.canShare({ files: [imageFile] })) {
+    try {
+      // 1. استخدام إضافات Capacitor المدمجة بالـ APK لحفظ الصورة ومشاركتها مع النص
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+        const { Share, Filesystem } = window.Capacitor.Plugins;
+
+        let imageUri = null;
+        if (storeImageBase64) {
+          const fileName = `store_${Date.now()}.jpg`;
+          const base64Data = storeImageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
+
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: 'CACHE'
+          });
+          imageUri = savedFile.uri;
+        }
+
+        await Share.share({
+          title: 'بيانات المحل',
+          text: messageText,
+          url: imageUri,
+          dialogTitle: 'إرسال عبر الواتساب'
+        });
+        return;
+      }
+
+      // 2. خطة بديلة للمتصفحات التي تدعم Web Share API
+      if (navigator.share && storeImageBase64) {
+        const response = await fetch(storeImageBase64);
+        const blob = await response.blob();
+        const imageFile = new File([blob], 'store_photo.jpg', { type: 'image/jpeg' });
+
+        if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
           await navigator.share({
             title: 'بيانات المحل',
             text: messageText,
@@ -306,16 +333,18 @@
           });
           return;
         }
-      } catch (err) {
-        console.log("تمت العودة لرابط الواتساب المباشر");
       }
-    }
 
-    // 2. رابط الواتساب المباشر بدون رقم (يفتح قائمة اختيار جهة الاتصال أو المجموعات في الواتساب)
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
-    window.open(whatsappUrl, '_system');
+      // 3. فتح الواتساب بالنص فقط في حال تعذر مشاركة الصور
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+      window.open(whatsappUrl, '_system');
+
+    } catch (err) {
+      console.error("خطأ في المشاركة:", err);
+    }
   }
 </script>
 
 </body>
 </html>
+
