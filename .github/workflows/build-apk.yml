@@ -17,11 +17,13 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Capacitor & Build App
+      - name: Prepare Web Assets & Build Capacitor
         run: |
+          mkdir www
+          find . -maxdepth 1 ! -name '.' ! -name 'www' ! -name 'android' ! -name '.git' ! -name '.github' ! -name 'node_modules' -exec cp -r {} www/ \;
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "StoreScanner" "com.storescanner.app" --web-dir .
+          npx cap init "StoreScanner" "com.storescanner.app" --web-dir www
           npx cap add android
           npx cap sync android
 
