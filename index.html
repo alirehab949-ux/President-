@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تطبيق مسح المحلات والـ GPS</title>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f4f6f9; padding: 15px; display: flex; justify-content: center; }
+    .app-container { width: 100%; max-width: 480px; background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+    
+    .app-header { text-align: center; margin-bottom: 20px; color: #2c3e50; font-size: 20px; font-weight: bold; }
+    
+    /* قسم رقم الهاتف المحفوظ */
+    .phone-box { background: #eef2f5; padding: 12px 15px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border: 1px solid #dcdfe6; }
+    .phone-box input { border: none; background: transparent; font-size: 16px; font-weight: bold; color: #2c3e50; width: 65%; outline: none; }
+    .phone-box button { background: #007bff; color: white; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+
+    /* الأزرار والأقسام */
+    .section-card { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; }
+    .section-title { font-size: 14px; color: #64748b; margin-bottom: 10px; font-weight: 600; text-align: right; }
+    
+    .btn-action { display: flex; align-items: center; justify-content: center; gap: 10px; background: #ffffff; border: 2px dashed #007bff; color: #007bff; padding: 14px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 15px; }
+    .btn-action:active { background: #ebf5ff; }
+
+    .result-input { width: 100%; padding: 12px; margin-top: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; text-align: center; font-weight: bold; color: #1e293b; background: white; }
+    .result-input:focus { border-color: #007bff; outline: none; }
+
+    .crop-preview-box { margin-top: 8px; display: none; text-align: center; }
+    .crop-preview-box img { height: 35px; border: 1px solid #007bff; border-radius: 4px; background: #000; }
+    .crop-preview-title { font-size: 11px; color: #64748b; margin-bottom: 3px; }
+
+    .preview-img { max-width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin-top: 10px; display: none; }
+    .gps-status { font-size: 13px; color: #16a34a; margin-top: 8px; font-weight: 500; display: none; }
+
+    /* زر الإرسال */
+    .btn-send { background: #25D366; color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3); margin-top: 10px; }
+    .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+    .status-msg { font-size: 13px; color: #64748b; margin-top: 6px; text-align: center; }
+
+    /* شاشة الكاميرا المباشرة */
+    .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+    .video-wrapper { position: relative; width: 90%; max-width: 400px; height: 55vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px; background: #000; }
+    .camera-video { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* إطار التحديد المصغر مع تعديل التموضع */
+    .scan-guide-box { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 42px; border: 2px dashed #2563eb; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65); pointer-events: none; z-index: 10; }
+    .scan-guide-box::after { content: "ضع الاسم هنا فقط"; position: absolute; top: -25px; left: 50%; transform: translateX(-50%); white-space: nowrap; color: #fff; font-size: 11px; font-weight: bold; background: #2563eb; padding: 2px 10px; border-radius: 4px; }
+
+    .camera-controls { margin-top: 20px; display: flex; gap: 15px; }
+    .btn-capture { background: #e11d48; color: white; border: none; padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .btn-close { background: #64748b; color: white; border: none; padding: 12px 20px; border-radius: 30px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="app-header"><i class="fa-solid fa-store"></i> ماسح المحلات والموقع</div>
+
+
+
+  <!-- 2. فتح الكاميرا لمسح اسم المحل -->
+  <div class="section-card">
+    <div class="section-title"><i class="fa-solid fa-font">    </i></div>
+    <button class="btn-action" onclick="openCamera('ocr')">
+      <i class="fa-solid fa-expand"></i> فتح الكاميرا لمسح الاسم
+    </button>
+    
+    <input type="text" id="storeNameResult" class="result-input" placeholder="اسم المحل يظهر هنا" oninput="checkReadyToSend()">
+    
+    <!-- معاينة المنطقة المقصوصة لتأكيد القراءة الصحيحة -->
+    <div id="cropPreviewBox" class="crop-preview-box">
+      <div class="crop-preview-title">المنطقة المقصوصة من الكاميرا:</div>
+      <img id="cropPreviewImg" alt="Crop Area">
+    </div>
+
+  <div id="ocrStatus" class="status-msg"></div>
+  </div>
+
+  <!-- 3. فتح الكاميرا لتصوير المحل والـ GPS -->
+  <div class="section-card">
+    <div class="section-title"><i class="fa-solid fa-camera-location"></i>  </div>
+    <button class="btn-action" style="border-color: #f59e0b; color: #d97706;" onclick="openCamera('photo')">
+      <i class="fa-solid fa-camera"></i> <i class="fa-solid fa-location-dot"></i> فتح الكاميرا وتعيين الـ GPS
+    </button>
+    <img id="storeImagePreview" class="preview-img" alt="معاينة صورة المحل">
+    <div id="gpsStatus" class="gps-status"><i class="fa-solid fa-circle-check"></i> تم تحديد الموقع بنجاح</div>
+  </div>
+
+  <!-- 4. الإرسال عبر الواتساب -->
+  <button id="sendBtn" class="btn-send" onclick="sendData()" disabled>
+    <i class="fa-brands fa-whatsapp" style="font-size: 24px;"></i> إرسال الصورة والبيانات
+  </button>
+</div>
+
+<!-- شاشة الكاميرا المباشرة -->
+<div id="cameraModal" class="camera-modal">
+  <div class="video-wrapper" id="videoWrapper">
+    <video id="videoFeed" class="camera-video" autoplay playsinline muted></video>
+    <div id="scanBox" class="scan-guide-box"></div>
+  </div>
+  <div class="camera-controls">
+    <button class="btn-capture" onclick="takeSnapshot()"><i class="fa-solid fa-circle"></i> التقاط</button>
+    <button class="btn-close" onclick="closeCamera()">إلغاء</button>
+  </div>
+  <canvas id="hiddenCanvas" style="display: none;"></canvas>
+  <canvas id="cropCanvas" style="display: none;"></canvas>
+</div>
+
+<script>
+  let isEditing = false;
+  let currentGpsUrl = "";
+  let activeMode = "";
+  let videoStream = null;
+  let storeImageBlob = null;
+
+  window.onload = function() {
+    const savedPhone = localStorage.getItem('app_saved_phone');
+    if (savedPhone) {
+      document.getElementById('targetPhone').value = savedPhone;
+    } else {
+      toggleEditPhone();
+    }
+  };
+
+  function toggleEditPhone() {
+    const phoneInput = document.getElementById('targetPhone');
+    const editBtn = document.getElementById('editBtn');
+
+    if (!isEditing) {
+      phoneInput.disabled = false;
+      phoneInput.focus();
+      editBtn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ';
+      editBtn.style.background = '#22c55e';
+      isEditing = true;
+    } else {
+      const cleanPhone = phoneInput.value.replace(/\D/g, '');
+      if (cleanPhone.length < 8) {
+        alert("يرجى إدخال رقم هاتف صحيح مع الرمز الدولي");
+        return;
+      }
+      localStorage.setItem('app_saved_phone', cleanPhone);
+      phoneInput.disabled = true;
+      editBtn.innerHTML = '<i class="fa-solid fa-pen"></i> تعديل';
+      editBtn.style.background = '#007bff';
+      isEditing = false;
+    }
+  }
+
+  async function openCamera(mode) {
+    activeMode = mode;
+    const modal = document.getElementById('cameraModal');
+    const video = document.getElementById('videoFeed');
+    const scanBox = document.getElementById('scanBox');
+
+    closeCameraStreamOnly();
+
+    scanBox.style.display = (mode === 'ocr') ? 'block' : 'none';
+    modal.style.display = 'flex';
+
+    try {
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (e1) {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      video.srcObject = videoStream;
+      video.onloadedmetadata = () => {
+        video.play().catch(err => console.log("Video play error:", err));
+      };
+
+    } catch (err) {
+      alert("تعذر فتح الكاميرا، يرجى إعطاء الصلاحيات للمتصفح.");
+      console.error(err);
+      closeCamera();
+    }
+  }
+
+  function closeCameraStreamOnly() {
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      videoStream = null;
+    }
+    const video = document.getElementById('videoFeed');
+    if (video) video.srcObject = null;
+  }
+
+  function closeCamera() {
+    closeCameraStreamOnly();
+    document.getElementById('cameraModal').style.display = 'none';
+  }
+
+  function takeSnapshot() {
+    const video = document.getElementById('videoFeed');
+    const canvas = document.getElementById('hiddenCanvas');
+    const context = canvas.getContext('2d');
+
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+
+    canvas.width = vw;
+    canvas.height = vh;
+    context.drawImage(video, 0, 0, vw, vh);
+
+    if (activeMode === 'ocr') {
+      const cropCanvas = document.getElementById('cropCanvas');
+      const cropCtx = cropCanvas.getContext('2d');
+
+      const wrapper = document.getElementById('videoWrapper');
+      const scanBox = document.getElementById('scanBox');
+
+      const cw = wrapper.clientWidth;
+      const ch = wrapper.clientHeight;
+
+      // حسابات أبعاد object-fit: cover لدقة متناهية بالبكسل
+      const videoRatio = vw / vh;
+      const wrapperRatio = cw / ch;
+
+      let renderW, renderH, offsetX = 0, offsetY = 0;
+
+      if (videoRatio > wrapperRatio) {
+        renderH = ch;
+        renderW = ch * videoRatio;
+        offsetX = (renderW - cw) / 2;
+      } else {
+        renderW = cw;
+        renderH = cw / videoRatio;
+        offsetY = (renderH - ch) / 2;
+      }
+
+      const scale = vw / renderW;
+
+      const boxRect = scanBox.getBoundingClientRect();
+      const wrapRect = wrapper.getBoundingClientRect();
+
+      const boxLeftInWrapper = boxRect.left - wrapRect.left;
+      const boxTopInWrapper = boxRect.top - wrapRect.top;
+
+      const sourceX = (boxLeftInWrapper + offsetX) * scale;
+      const sourceY = (boxTopInWrapper + offsetY) * scale;
+      const sourceW = scanBox.clientWidth * scale;
+      const sourceH = scanBox.clientHeight * scale;
+
+      cropCanvas.width = sourceW;
+      cropCanvas.height = sourceH;
+
+      // تطبيق فلتر تحسين التباين على الصورة المقصوصة لجعل النص واضحاً جداً للـ OCR
+      cropCtx.filter = 'grayscale(100%) contrast(200%) brightness(100%)';
+      cropCtx.drawImage(canvas, sourceX, sourceY, sourceW, sourceH, 0, 0, sourceW, sourceH);
+
+      const croppedImageUrl = cropCanvas.toDataURL('image/jpeg');
+
+      // عرض معاينة الجزء المقصوص للتأكد من المحتوى
+      document.getElementById('cropPreviewImg').src = croppedImageUrl;
+      document.getElementById('cropPreviewBox').style.display = 'block';
+
+      processOCR(croppedImageUrl);
+
+    } else if (activeMode === 'photo') {
+      canvas.toBlob((blob) => { storeImageBlob = blob; }, 'image/jpeg');
+      const fullImageUrl = canvas.toDataURL('image/jpeg');
+      processPhotoAndGPS(fullImageUrl);
+    }
+
+    closeCamera();
+  }
+
+  async function processOCR(croppedImageUrl) {
+    const ocrStatus = document.getElementById('ocrStatus');
+    const storeNameInput = document.getElementById('storeNameResult');
+    
+    ocrStatus.innerText = "جاري القراءة المباشرة من المربع...";
+
+    try {
+      // إجبار التيسراكت على قراءة النص كـ "سطر واحد فقط" (PSM 7) لمنع التخمين والخطأ
+      const result = await Tesseract.recognize(croppedImageUrl, 'eng', {
+        tessedit_pageseg_mode: '7'
+      });
+      
+      let rawText = result.data.text ? result.data.text.trim() : "";
+      
+      // تنظيف الرموز الزائدة
+      let cleanText = rawText.replace(/[\\/|_\-~`]/g, '').trim();
+
+      if (cleanText.length > 1) {
+        storeNameInput.value = cleanText;
+        ocrStatus.innerText = "تمت القراءة بنجاح!";
+      } else {
+        ocrStatus.innerText = "لم تظهر القراءة بوضوح، يرجى كتابة الاسم يدوياً أو التثبيت جيداً.";
+      }
+    } catch (err) {
+      console.error(err);
+      ocrStatus.innerText = "حدث خطأ، اكتب الاسم يدوياً.";
+    } finally {
+      checkReadyToSend();
+    }
+  }
+
+  function processPhotoAndGPS(imageUrl) {
+    const imgPreview = document.getElementById('storeImagePreview');
+    imgPreview.src = imageUrl;
+    imgPreview.style.display = 'block';
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          currentGpsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+          document.getElementById('gpsStatus').style.display = 'block';
+          checkReadyToSend();
+        },
+        (error) => {
+          alert("تعذر تحديد موقع الـ GPS، يرجى تفعيل الـ GPS في الهاتف.");
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+  }
+
+  function checkReadyToSend() {
+    const storeName = document.getElementById('storeNameResult').value.trim();
+    const sendBtn = document.getElementById('sendBtn');
+    
+    if (storeName !== "" && currentGpsUrl !== "") {
+      sendBtn.disabled = false;
+    } else {
+      sendBtn.disabled = true;
+    }
+  }
+
+  async function sendData() {
+    const phone = localStorage.getItem('app_saved_phone');
+    const storeName = document.getElementById('storeNameResult').value.trim();
+    const messageText = `\n\n📝  ${storeName}\n ${currentGpsUrl}`;
+
+    if (storeImageBlob && navigator.canShare) {
+      try {
+        const imageFile = new File([storeImageBlob], 'store_photo.jpg', { type: 'image/jpeg' });
+        if (navigator.canShare({ files: [imageFile] })) {
+          await navigator.share({
+            title: 'بيانات المحل',
+            text: messageText,
+            files: [imageFile]
+          });
+          return;
+        }
+      } catch (err) {
+        console.log("تم التوجيه للواتساب مباشرة");
+      }
+    }
+
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(messageText)}`;
+    window.open(whatsappUrl, '_blank');
+  }
+</script>
+
+</body>
+</html>
