@@ -3,7 +3,7 @@ name: Build Android APK from HTML
 on:
   push:
     branches:
-      - main # أبدلها بـ master إذا كان هذا اسم الفرع لديك
+      - main # أبدلها بـ master إذا كان اسم الفرع لديك master
 
 jobs:
   build:
@@ -27,14 +27,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Initialize Capacitor & Prepare Web Files
+      - name: Initialize Capacitor & Install Share Plugins
         run: |
           mkdir -p www
           cp index.html www/
           cp *.css *.js www/ 2>/dev/null || true
           
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/share @capacitor/filesystem
           npx cap init "President App" "com.president.app" --web-dir "www"
           npx cap add android
 
