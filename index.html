@@ -14,11 +14,6 @@
     .app-container { width: 100%; max-width: 480px; background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
     
     .app-header { text-align: center; margin-bottom: 20px; color: #2c3e50; font-size: 20px; font-weight: bold; }
-    
-    /* قسم رقم الهاتف المحفوظ */
-    .phone-box { background: #eef2f5; padding: 12px 15px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border: 1px solid #dcdfe6; }
-    .phone-box input { border: none; background: transparent; font-size: 16px; font-weight: bold; color: #2c3e50; width: 65%; outline: none; }
-    .phone-box button { background: #007bff; color: white; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
 
     /* الأزرار والأقسام */
     .section-card { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; }
@@ -61,11 +56,9 @@
 <div class="app-container">
   <div class="app-header"><i class="fa-solid fa-store"></i> ماسح المحلات والموقع</div>
 
-
-
-  <!-- 2. فتح الكاميرا لمسح اسم المحل -->
+  <!-- 1. فتح الكاميرا لمسح اسم المحل -->
   <div class="section-card">
-    <div class="section-title"><i class="fa-solid fa-font">    </i></div>
+    <div class="section-title"><i class="fa-solid fa-font"></i> مسح اسم المحل</div>
     <button class="btn-action" onclick="openCamera('ocr')">
       <i class="fa-solid fa-expand"></i> فتح الكاميرا لمسح الاسم
     </button>
@@ -78,12 +71,12 @@
       <img id="cropPreviewImg" alt="Crop Area">
     </div>
 
-  <div id="ocrStatus" class="status-msg"></div>
+    <div id="ocrStatus" class="status-msg"></div>
   </div>
 
-  <!-- 3. فتح الكاميرا لتصوير المحل والـ GPS -->
+  <!-- 2. فتح الكاميرا لتصوير المحل والـ GPS -->
   <div class="section-card">
-    <div class="section-title"><i class="fa-solid fa-camera-location"></i>  </div>
+    <div class="section-title"><i class="fa-solid fa-camera-location"></i> تصوير الواجهة والموقع</div>
     <button class="btn-action" style="border-color: #f59e0b; color: #d97706;" onclick="openCamera('photo')">
       <i class="fa-solid fa-camera"></i> <i class="fa-solid fa-location-dot"></i> فتح الكاميرا وتعيين الـ GPS
     </button>
@@ -91,9 +84,9 @@
     <div id="gpsStatus" class="gps-status"><i class="fa-solid fa-circle-check"></i> تم تحديد الموقع بنجاح</div>
   </div>
 
-  <!-- 4. الإرسال عبر الواتساب -->
+  <!-- 3. الإرسال واختيار الجهة في الواتساب -->
   <button id="sendBtn" class="btn-send" onclick="sendData()" disabled>
-    <i class="fa-brands fa-whatsapp" style="font-size: 24px;"></i> إرسال الصورة والبيانات
+    <i class="fa-brands fa-whatsapp" style="font-size: 24px;"></i> إرسال واختيار جهة الاتصال
   </button>
 </div>
 
@@ -112,44 +105,10 @@
 </div>
 
 <script>
-  let isEditing = false;
   let currentGpsUrl = "";
   let activeMode = "";
   let videoStream = null;
   let storeImageBlob = null;
-
-  window.onload = function() {
-    const savedPhone = localStorage.getItem('app_saved_phone');
-    if (savedPhone) {
-      document.getElementById('targetPhone').value = savedPhone;
-    } else {
-      toggleEditPhone();
-    }
-  };
-
-  function toggleEditPhone() {
-    const phoneInput = document.getElementById('targetPhone');
-    const editBtn = document.getElementById('editBtn');
-
-    if (!isEditing) {
-      phoneInput.disabled = false;
-      phoneInput.focus();
-      editBtn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ';
-      editBtn.style.background = '#22c55e';
-      isEditing = true;
-    } else {
-      const cleanPhone = phoneInput.value.replace(/\D/g, '');
-      if (cleanPhone.length < 8) {
-        alert("يرجى إدخال رقم هاتف صحيح مع الرمز الدولي");
-        return;
-      }
-      localStorage.setItem('app_saved_phone', cleanPhone);
-      phoneInput.disabled = true;
-      editBtn.innerHTML = '<i class="fa-solid fa-pen"></i> تعديل';
-      editBtn.style.background = '#007bff';
-      isEditing = false;
-    }
-  }
 
   async function openCamera(mode) {
     activeMode = mode;
@@ -220,7 +179,6 @@
       const cw = wrapper.clientWidth;
       const ch = wrapper.clientHeight;
 
-      // حسابات أبعاد object-fit: cover لدقة متناهية بالبكسل
       const videoRatio = vw / vh;
       const wrapperRatio = cw / ch;
 
@@ -252,13 +210,11 @@
       cropCanvas.width = sourceW;
       cropCanvas.height = sourceH;
 
-      // تطبيق فلتر تحسين التباين على الصورة المقصوصة لجعل النص واضحاً جداً للـ OCR
       cropCtx.filter = 'grayscale(100%) contrast(200%) brightness(100%)';
       cropCtx.drawImage(canvas, sourceX, sourceY, sourceW, sourceH, 0, 0, sourceW, sourceH);
 
       const croppedImageUrl = cropCanvas.toDataURL('image/jpeg');
 
-      // عرض معاينة الجزء المقصوص للتأكد من المحتوى
       document.getElementById('cropPreviewImg').src = croppedImageUrl;
       document.getElementById('cropPreviewBox').style.display = 'block';
 
@@ -280,14 +236,11 @@
     ocrStatus.innerText = "جاري القراءة المباشرة من المربع...";
 
     try {
-      // إجبار التيسراكت على قراءة النص كـ "سطر واحد فقط" (PSM 7) لمنع التخمين والخطأ
       const result = await Tesseract.recognize(croppedImageUrl, 'eng', {
         tessedit_pageseg_mode: '7'
       });
       
       let rawText = result.data.text ? result.data.text.trim() : "";
-      
-      // تنظيف الرموز الزائدة
       let cleanText = rawText.replace(/[\\/|_\-~`]/g, '').trim();
 
       if (cleanText.length > 1) {
@@ -338,10 +291,10 @@
   }
 
   async function sendData() {
-    const phone = localStorage.getItem('app_saved_phone');
     const storeName = document.getElementById('storeNameResult').value.trim();
-    const messageText = `\n\n📝  ${storeName}\n ${currentGpsUrl}`;
+    const messageText = `📝 المحل: ${storeName}\n📍 الموقع: ${currentGpsUrl}`;
 
+    // 1. محاولة المشاركة عبر نظام الهاتف (تتيح إرسال الصورة والنص معاً واختيار المحادثة في الواتساب)
     if (storeImageBlob && navigator.canShare) {
       try {
         const imageFile = new File([storeImageBlob], 'store_photo.jpg', { type: 'image/jpeg' });
@@ -354,12 +307,13 @@
           return;
         }
       } catch (err) {
-        console.log("تم التوجيه للواتساب مباشرة");
+        console.log("تمت العودة لرابط الواتساب المباشر");
       }
     }
 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(messageText)}`;
-    window.open(whatsappUrl, '_blank');
+    // 2. رابط الواتساب المباشر بدون رقم (يفتح قائمة اختيار جهة الاتصال أو المجموعات في الواتساب)
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+    window.open(whatsappUrl, '_system');
   }
 </script>
 
