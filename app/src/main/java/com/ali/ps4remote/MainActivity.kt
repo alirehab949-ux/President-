@@ -23,13 +23,15 @@ class MainActivity : Activity() {
     private val io = Executors.newSingleThreadExecutor()
     private val socket by lazy { DatagramSocket() }
     private lateinit var ipBox: EditText
+    private lateinit var portBox: EditText
 
     private fun send(msg: String) {
         val ip = ipBox.text.toString().trim()
+        val port = portBox.text.toString().toIntOrNull() ?: 9090
         io.execute {
             try {
                 val d = msg.toByteArray()
-                socket.send(DatagramPacket(d, d.size, InetAddress.getByName(ip), 9090))
+                socket.send(DatagramPacket(d, d.size, InetAddress.getByName(ip), port))
             } catch (_: Exception) {}
         }
     }
@@ -59,6 +61,13 @@ class MainActivity : Activity() {
             inputType = InputType.TYPE_CLASS_PHONE
         }
         root.addView(ipBox)
+
+        portBox = EditText(this).apply {
+            setText("9090")
+            hint = "Port"
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        root.addView(portBox)
 
         val pad = View(this).apply {
             setBackgroundColor(Color.parseColor("#33000000"))
